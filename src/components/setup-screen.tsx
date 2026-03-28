@@ -33,7 +33,15 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
     <div className="flex flex-1 items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-amber-400">🍺 Yo-i Facilitator</h1>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/yoi/drunk_1.png"
+            alt="ヨイさん"
+            width={120}
+            height={120}
+            className="mx-auto mb-4 rounded-full"
+          />
+          <h1 className="text-3xl font-bold text-amber-400">AI幹事ヨイさん</h1>
           <p className="mt-2 text-zinc-400">飲み会の参加者を入力してね</p>
         </div>
 

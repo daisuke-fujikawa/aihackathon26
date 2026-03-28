@@ -47,11 +47,17 @@ function YoiAppInner() {
   const isProcessingRef = useRef(false);
   const kanpaiTriggerRef = useRef(false);
 
+  // 音声認識の開始/停止をrefで保持（宣言順序の問題を回避）
+  const startListeningRef = useRef<() => void>(() => {});
+  const stopListeningRef = useRef<() => void>(() => {});
+
   // --- 音声再生フック ---
   const { isPlaying, playAudio } = useAudioPlayer({
     onComplete: () => {
       setPhase("LISTENING");
       resetYoiImage();
+      // TTS再生完了後にマイク再開
+      startListeningRef.current();
     },
   });
 
@@ -65,6 +71,9 @@ function YoiAppInner() {
       if (isProcessingRef.current) return;
       isProcessingRef.current = true;
       setPhase("PROCESSING");
+
+      // TTS再生中にマイクが自分の音声を拾わないよう認識を一時停止
+      stopListeningRef.current();
 
       // トリガーに応じた画像切り替え
       if (triggerType && TRIGGER_IMAGE_MAP[triggerType]) {
@@ -113,11 +122,13 @@ function YoiAppInner() {
           console.warn("TTS failed, falling back to text-only");
           setPhase("LISTENING");
           resetYoiImage();
+          startListeningRef.current();
         }
       } catch (error) {
         console.error("generateAndSpeak error:", error);
         setPhase("LISTENING");
         resetYoiImage();
+        startListeningRef.current();
       } finally {
         isProcessingRef.current = false;
       }
@@ -143,6 +154,10 @@ function YoiAppInner() {
     stopListening,
     resetTranscript,
   } = useSpeechRecognition();
+
+  // refを最新の関数で更新
+  startListeningRef.current = startListening;
+  stopListeningRef.current = stopListening;
 
   // --- 音量計測 ---
   const { volumeLevel, totalSpeechTime } = useAudioAnalyser();
@@ -277,7 +292,7 @@ function YoiAppInner() {
             className="rounded-full"
           />
           <span className="text-sm font-medium text-amber-400">
-            Yo-i Facilitator
+            ヨイさん
           </span>
         </div>
         <BeerJugVisualizer
