@@ -37,7 +37,7 @@ beforeEach(() => {
 describe("YoiApp 統合", () => {
   it("初期表示でセットアップ画面が表示される", () => {
     render(<YoiApp />);
-    expect(screen.getByText(/Yo-i Facilitator/)).toBeDefined();
+    expect(screen.getByText(/AI幹事ヨイさん/)).toBeDefined();
     expect(screen.getByPlaceholderText(/名前/)).toBeDefined();
   });
 

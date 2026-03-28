@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Yo-i Facilitator | 酔い・良いファシリテーター",
+  title: "AI幹事ヨイさん | 酔い・良いファシリテーター",
   description: "AIが酔っ払いキャラクターとして飲み会をファシリテーション",
 };
 
