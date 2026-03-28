@@ -48,6 +48,11 @@ export function useAudioPlayer(
         audioContextRef.current ?? new AudioContext();
       audioContextRef.current = audioContext;
 
+      // ブラウザの自動再生ポリシーで suspended になっている場合に再開
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+
       // ArrayBuffer → AudioBuffer
       const audioBuffer = await audioContext.decodeAudioData(
         arrayBuffer.slice(0)
