@@ -20,7 +20,7 @@ export function ChatPanel({ messages, currentYoiImage }: ChatPanelProps) {
     <div className="relative flex-1 overflow-hidden">
       <div
         className="absolute inset-0 bg-cover bg-center opacity-20"
-        style={{ backgroundImage: "url(/bg/background.svg)" }}
+        style={{ backgroundImage: "url(/bg/backgroung.png)" }}
       />
       <div className="relative h-full overflow-y-auto p-4 space-y-3">
         {messages.map((msg) => (
