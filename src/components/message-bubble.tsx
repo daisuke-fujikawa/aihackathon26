@@ -1,16 +1,15 @@
 "use client";
 
-import Image from "next/image";
 import type { ChatMessage, YoiImageKey } from "@/providers/session-state-provider";
 
 const YOI_IMAGE_MAP: Record<YoiImageKey, string> = {
-  drunk_1: "/yoi/drunk-1.svg",
-  drunk_2: "/yoi/drunk-2.svg",
-  drunk_3: "/yoi/drunk-3.svg",
-  kanpai: "/yoi/kanpai.svg",
-  pass: "/yoi/pass.svg",
-  clock: "/yoi/clock.svg",
-  restroom: "/yoi/restroom.svg",
+  drunk_1: "/yoi/drunk_1.png",
+  drunk_2: "/yoi/drunk_2.png",
+  drunk_3: "/yoi/drunk_3.png",
+  kanpai: "/yoi/kanpai.png",
+  pass: "/yoi/pass.png",
+  clock: "/yoi/clock.png",
+  restroom: "/yoi/restroom.png",
 };
 
 interface MessageBubbleProps {
@@ -26,7 +25,8 @@ export function MessageBubble({ message, currentYoiImage }: MessageBubbleProps) 
     <div className={`flex gap-2 ${isYoi ? "flex-row" : "flex-row-reverse"}`}>
       {isYoi && (
         <div className="flex-shrink-0">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src={YOI_IMAGE_MAP[imageKey]}
             alt="ヨイさん"
             width={40}

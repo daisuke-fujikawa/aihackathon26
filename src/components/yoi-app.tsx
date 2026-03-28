@@ -22,7 +22,6 @@ import { BeerJugVisualizer } from "./beer-jug-visualizer";
 import { MicStatusIndicator } from "./mic-status-indicator";
 import { ConfettiEffect } from "./confetti-effect";
 import { fetchWithRetry } from "@/lib/retry";
-import Image from "next/image";
 
 const TRIGGER_IMAGE_MAP: Partial<Record<FacilitationTriggerType, YoiImageKey>> =
   {
@@ -269,8 +268,9 @@ function YoiAppInner() {
       {/* ヘッダー */}
       <header className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
         <div className="flex items-center gap-3">
-          <Image
-            src={`/yoi/${state.currentYoiImage.replace("_", "-")}.svg`}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/yoi/${state.currentYoiImage}.png`}
             alt="ヨイさん"
             width={36}
             height={36}
