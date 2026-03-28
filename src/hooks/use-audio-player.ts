@@ -14,6 +14,7 @@ interface UseAudioPlayerOptions {
 export interface UseAudioPlayerReturn extends AudioPlayerState {
   playAudio: (audioBuffer: ArrayBuffer) => Promise<void>;
   stopAudio: () => void;
+  initAudioContext: () => Promise<void>;
 }
 
 export function useAudioPlayer(
@@ -28,6 +29,15 @@ export function useAudioPlayer(
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const onCompleteRef = useRef(options?.onComplete);
   onCompleteRef.current = options?.onComplete;
+
+  // ユーザーのジェスチャー中に呼ぶことでブラウザの自動再生ポリシーをアンロック
+  const initAudioContext = useCallback(async () => {
+    const ctx = audioContextRef.current ?? new AudioContext();
+    audioContextRef.current = ctx;
+    if (ctx.state === "suspended") {
+      await ctx.resume();
+    }
+  }, []);
 
   const stopAudio = useCallback(() => {
     try {
@@ -94,5 +104,6 @@ export function useAudioPlayer(
     ...state,
     playAudio,
     stopAudio,
+    initAudioContext,
   };
 }

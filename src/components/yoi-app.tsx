@@ -48,7 +48,7 @@ function YoiAppInner() {
   const kanpaiTriggerRef = useRef(false);
 
   // --- 音声再生フック ---
-  const { isPlaying, playAudio } = useAudioPlayer({
+  const { isPlaying, playAudio, initAudioContext } = useAudioPlayer({
     onComplete: () => {
       setPhase("LISTENING");
       resetYoiImage();
@@ -251,11 +251,13 @@ function YoiAppInner() {
       stopListening();
       setPhase("IDLE");
     } else {
+      // ユーザーのジェスチャー中に AudioContext をアンロック（自動再生ポリシー対策）
+      initAudioContext();
       startListening();
       setPhase("LISTENING");
       updateLastSpeechTime();
     }
-  }, [isListening, startListening, stopListening, setPhase, updateLastSpeechTime]);
+  }, [isListening, startListening, stopListening, setPhase, updateLastSpeechTime, initAudioContext]);
 
   // --- SETUP画面 ---
   if (state.phase === "SETUP") {
