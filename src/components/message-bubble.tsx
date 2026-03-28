@@ -29,8 +29,8 @@ export function MessageBubble({ message, currentYoiImage }: MessageBubbleProps) 
           <img
             src={YOI_IMAGE_MAP[imageKey]}
             alt="ヨイさん"
-            width={40}
-            height={40}
+            width={64}
+            height={64}
             className="rounded-full"
           />
         </div>

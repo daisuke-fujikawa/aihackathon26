@@ -272,8 +272,8 @@ function YoiAppInner() {
           <img
             src={`/yoi/${state.currentYoiImage}.png`}
             alt="ヨイさん"
-            width={36}
-            height={36}
+            width={56}
+            height={56}
             className="rounded-full"
           />
           <span className="text-sm font-medium text-amber-400">
