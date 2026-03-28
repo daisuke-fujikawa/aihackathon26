@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="1024" viewBox="0 0 768 1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="768" height="1024" fill="url(#bg)"/>
+  <text x="384" y="512" text-anchor="middle" fill="#4a4a6a" font-size="24" font-family="sans-serif">🍺 Yo-i Facilitator Background</text>
+</svg>
