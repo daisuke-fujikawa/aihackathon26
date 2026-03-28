@@ -47,13 +47,26 @@ function YoiAppInner() {
   const isProcessingRef = useRef(false);
   const kanpaiTriggerRef = useRef(false);
 
-  // --- 音声再生フック ---
-  const { isPlaying, playAudio, initAudioContext } = useAudioPlayer({
-    onComplete: () => {
-      setPhase("LISTENING");
-      resetYoiImage();
-    },
-  });
+  // --- 音声再生フック（AudioContext アンロック用） ---
+  const { initAudioContext } = useAudioPlayer();
+
+  // --- ブラウザ組み込み SpeechSynthesis によるTTS ---
+  const speakText = useCallback((text: string): Promise<void> => {
+    return new Promise((resolve) => {
+      if (typeof window === "undefined" || !window.speechSynthesis) {
+        resolve();
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "ja-JP";
+      utterance.rate = 0.85 + Math.random() * 0.1; // 酔っ払い風にゆっくり
+      utterance.pitch = 0.9 + Math.random() * 0.2; // 揺らぎ
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
+      window.speechSynthesis.speak(utterance);
+    });
+  }, []);
 
   // --- AI応答→TTS→再生 ---
   const generateAndSpeak = useCallback(
@@ -97,29 +110,15 @@ function YoiAppInner() {
             : undefined,
         });
 
-        // TTS（3回リトライ、1秒間隔。失敗時はテキストのみ表示にフォールバック）
+        // ブラウザ組み込み SpeechSynthesis で読み上げ
         setPhase("SPEAKING");
-        try {
-          const ttsRes = await fetchWithRetry("/api/tts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text }),
-          });
-
-          const audioBuffer = await ttsRes.arrayBuffer();
-          await playAudio(audioBuffer);
-        } catch {
-          // TTS失敗: テキストのみ表示でリカバリ
-          console.warn("TTS failed, falling back to text-only");
-          setPhase("LISTENING");
-          resetYoiImage();
-        }
+        await speakText(text);
       } catch (error) {
         console.error("generateAndSpeak error:", error);
-        setPhase("LISTENING");
-        resetYoiImage();
       } finally {
         isProcessingRef.current = false;
+        setPhase("LISTENING");
+        resetYoiImage();
       }
     },
     [
@@ -127,7 +126,7 @@ function YoiAppInner() {
       state.messages,
       setPhase,
       addMessage,
-      playAudio,
+      speakText,
       setTemporaryYoiImage,
       resetYoiImage,
     ]
@@ -221,7 +220,7 @@ function YoiAppInner() {
     config: state.facilitationConfig,
     participants: state.participants,
     isListening,
-    isProcessing: isProcessingRef.current || isPlaying,
+    isProcessing: isProcessingRef.current,
     lastSpeechTime: state.lastSpeechTime,
     sessionStartTime: state.sessionStartTime,
     kanpaiCount: state.kanpaiCount,

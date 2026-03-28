@@ -41,13 +41,17 @@ export async function POST(req: Request): Promise<Response> {
     });
 
     if (!response.ok) {
+      const errorBody = typeof response.text === "function"
+        ? await response.text().catch(() => "(no body)")
+        : "(no body)";
       console.error(
         "OpenAI TTS API error:",
         response.status,
-        response.statusText
+        response.statusText,
+        errorBody
       );
       return Response.json(
-        { error: "音声合成に失敗しました" },
+        { error: `音声合成に失敗しました (OpenAI ${response.status}: ${errorBody})` },
         { status: 503 }
       );
     }
