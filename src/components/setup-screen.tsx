@@ -1,14 +1,22 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import type { UnlockResult } from "@/hooks/use-audio-player";
 
 interface SetupScreenProps {
   onStart: (participants: string[]) => void;
+  onUnlockAudio?: () => Promise<UnlockResult>;
+  isMobile?: boolean;
 }
 
-export function SetupScreen({ onStart }: SetupScreenProps) {
+export function SetupScreen({
+  onStart,
+  onUnlockAudio,
+  isMobile,
+}: SetupScreenProps) {
   const [name, setName] = useState("");
   const [participants, setParticipants] = useState<string[]>([]);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
 
   const addParticipant = () => {
     const trimmed = name.trim();
@@ -24,13 +32,32 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (participants.length > 0) {
-      onStart(participants);
+    if (participants.length === 0) return;
+
+    // ユーザージェスチャー同期コールスタックで AudioContext unlock を起動。
+    // 内部で resume() 等の await が走るが、AudioContext 生成自体は同期的に
+    // 実行されるため iOS Safari でもジェスチャー要件を満たす。
+    // 失敗時は useAudioPlayer.lastError 経由でバナーに通知される。
+    if (onUnlockAudio) {
+      onUnlockAudio()
+        .then((result) => {
+          if (result.status === "failed" && result.reason === "resume-rejected") {
+            setUnlockError(
+              "音声の有効化に失敗しました。画面をタップしてから再試行してください。"
+            );
+          }
+        })
+        .catch(() => {
+          // errors surfaced via banner lastError
+        });
     }
+
+    setUnlockError(null);
+    onStart(participants);
   };
 
   return (
-    <div className="flex flex-1 items-center justify-center p-4">
+    <div className="flex flex-1 items-center justify-center p-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-[max(env(safe-area-inset-top),1rem)]">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -43,6 +70,11 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
           />
           <h1 className="text-3xl font-bold text-amber-400">AI幹事ヨイさん</h1>
           <p className="mt-2 text-zinc-400">飲み会の参加者を入力してね</p>
+          {isMobile && (
+            <p className="mt-2 text-xs text-amber-300/80">
+              「開始する」をタップすると音声が有効になります
+            </p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -63,7 +95,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
             <button
               type="button"
               onClick={addParticipant}
-              className="rounded-lg bg-zinc-700 px-4 py-2 text-white hover:bg-zinc-600"
+              className="min-h-11 min-w-11 rounded-lg bg-zinc-700 px-4 py-2 text-white hover:bg-zinc-600"
             >
               追加
             </button>
@@ -89,10 +121,19 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
             </div>
           )}
 
+          {unlockError && (
+            <div
+              role="alert"
+              className="rounded-md border border-red-700 bg-red-900/60 px-3 py-2 text-sm text-red-100"
+            >
+              {unlockError}
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={participants.length === 0}
-            className="w-full rounded-lg bg-amber-600 py-3 text-lg font-bold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
+            className="min-h-12 w-full rounded-lg bg-amber-600 py-3 text-lg font-bold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
           >
             🍻 飲み会を開始する
           </button>

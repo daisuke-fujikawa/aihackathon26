@@ -46,7 +46,7 @@ export function MicStatusIndicator({ phase, onToggle }: MicStatusIndicatorProps)
     <button
       data-testid="mic-indicator"
       onClick={onToggle}
-      className={`flex items-center gap-2 rounded-full px-4 py-2 text-white transition ${config.color} ${
+      className={`flex min-h-11 min-w-11 items-center gap-2 rounded-full px-4 py-2 text-white transition ${config.color} ${
         config.pulse ? "animate-pulse" : ""
       } hover:opacity-80`}
     >
