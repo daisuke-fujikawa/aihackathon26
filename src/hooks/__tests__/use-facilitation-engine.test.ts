@@ -17,6 +17,9 @@ describe("useFacilitationEngine", () => {
     passIntervalSec: 30,
     breakIntervalMin: 30,
     kanpaiBreakThreshold: 3,
+    maxResponseChars: 40,
+    aiCooldownSec: 15,
+    transcriptDebounceMs: 1500,
   };
 
   describe("沈黙キラー", () => {
@@ -235,6 +238,110 @@ describe("useFacilitationEngine", () => {
         type: "GO_HOME_REMIND",
         detectedKeyword: "終電",
       });
+    });
+  });
+
+  describe("クールダウン", () => {
+    it("クールダウン中は沈黙キラーも発火しない", () => {
+      const onTrigger = vi.fn();
+      const now = Date.now();
+      renderHook(() =>
+        useFacilitationEngine({
+          config: defaultConfig,
+          participants: ["太郎"],
+          isListening: true,
+          isProcessing: false,
+          lastSpeechTime: now - 20000, // 沈黙 20秒
+          sessionStartTime: now,
+          kanpaiCount: 0,
+          onTrigger,
+          lastYoiSpeakAt: now - 5000, // 直近 5 秒前にヨイさん発話
+          aiCooldownSec: 15,
+        })
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(3500);
+      });
+
+      expect(onTrigger).not.toHaveBeenCalled();
+    });
+
+    it("クールダウンが明けたら通常通り発火する", () => {
+      const onTrigger = vi.fn();
+      const now = Date.now();
+      renderHook(() =>
+        useFacilitationEngine({
+          config: defaultConfig,
+          participants: ["太郎"],
+          isListening: true,
+          isProcessing: false,
+          lastSpeechTime: now - 20000,
+          sessionStartTime: now,
+          kanpaiCount: 0,
+          onTrigger,
+          lastYoiSpeakAt: now - 20000, // 20 秒前なのでクールダウン（15 秒）明け
+          aiCooldownSec: 15,
+        })
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(3500);
+      });
+
+      expect(onTrigger).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "SILENCE_KILLER" })
+      );
+    });
+  });
+
+  describe("会話バランス検知", () => {
+    it("直近発話が連続している時はパス出し頻度が下がる", () => {
+      // 沈黙キラーの影響を除外するため、silenceThresholdSec を非常に大きくする。
+      // passIntervalSec=6（balanced 時は 1.5 倍の 9）。
+      const scenarioConfig = {
+        ...defaultConfig,
+        silenceThresholdSec: 3600,
+        passIntervalSec: 6,
+      };
+      const runScenario = (keepFresh: boolean) => {
+        const spy = vi.fn();
+        const buildProps = (lastSpeechTime: number) => ({
+          config: scenarioConfig,
+          participants: ["太郎", "花子"],
+          isListening: true,
+          isProcessing: false,
+          lastSpeechTime,
+          sessionStartTime: Date.now(),
+          kanpaiCount: 0,
+          onTrigger: spy,
+        });
+        const { rerender } = renderHook(
+          (props: ReturnType<typeof buildProps>) =>
+            useFacilitationEngine(props),
+          {
+            initialProps: buildProps(
+              keepFresh ? Date.now() - 1000 : Date.now() - 10000
+            ),
+          }
+        );
+        for (let i = 0; i < 12; i++) {
+          act(() => {
+            vi.advanceTimersByTime(3000);
+          });
+          if (keepFresh) {
+            rerender(buildProps(Date.now() - 1000));
+          }
+        }
+        return spy.mock.calls.filter(
+          (c) => c[0].type === "PASS_TO_PARTICIPANT"
+        ).length;
+      };
+
+      const unbalanced = runScenario(false);
+      const balanced = runScenario(true);
+
+      expect(balanced).toBeLessThan(unbalanced);
     });
   });
 

@@ -21,9 +21,18 @@ interface FacilitationEngineOptions {
   sessionStartTime: number;
   kanpaiCount: number;
   onTrigger: (trigger: FacilitationTrigger) => void;
+  /** 直近のヨイさん発話時刻（unix ms）。0 は未発話。 */
+  lastYoiSpeakAt?: number;
+  /** ヨイさんの発話クールダウン秒数。 */
+  aiCooldownSec?: number;
 }
 
 const CHECK_INTERVAL_MS = 3000;
+
+/** 直近にユーザー発話があれば「会話が弾んでいる」と判定する猶予秒数。 */
+const BALANCED_RECENT_SPEECH_WINDOW_MS = 5000;
+/** バランス良好時の pass 閾値の引き上げ倍率。 */
+const BALANCED_PASS_INTERVAL_MULTIPLIER = 1.5;
 
 export function useFacilitationEngine(options: FacilitationEngineOptions) {
   const {
@@ -35,6 +44,8 @@ export function useFacilitationEngine(options: FacilitationEngineOptions) {
     sessionStartTime,
     kanpaiCount,
     onTrigger,
+    lastYoiSpeakAt = 0,
+    aiCooldownSec = 0,
   } = options;
 
   const onTriggerRef = useRef(onTrigger);
@@ -52,6 +63,22 @@ export function useFacilitationEngine(options: FacilitationEngineOptions) {
     const interval = setInterval(() => {
       const now = Date.now();
 
+      // クールダウン中は自動介入を一切発火しない
+      if (
+        aiCooldownSec > 0 &&
+        lastYoiSpeakAt > 0 &&
+        now - lastYoiSpeakAt < aiCooldownSec * 1000
+      ) {
+        console.info("yoi.facilitation.cooldown", {
+          sinceLastSpeakMs: now - lastYoiSpeakAt,
+        });
+        return;
+      }
+
+      // 会話が弾んでいるか（直近 5 秒以内に発話があるか）
+      const isConversationBalanced =
+        now - lastSpeechTime < BALANCED_RECENT_SPEECH_WINDOW_MS;
+
       // 沈黙キラー: 最終発話から閾値秒超過
       const silenceSec = (now - lastSpeechTime) / 1000;
       if (
@@ -67,9 +94,14 @@ export function useFacilitationEngine(options: FacilitationEngineOptions) {
       }
 
       // パス出し: 一定間隔で参加者に振る
+      // 会話が弾んでいる場合は閾値を引き上げて控えめに
+      const effectivePassIntervalMs =
+        config.passIntervalSec *
+        1000 *
+        (isConversationBalanced ? BALANCED_PASS_INTERVAL_MULTIPLIER : 1);
       if (
         participants.length > 0 &&
-        now - lastPassTimeRef.current > config.passIntervalSec * 1000
+        now - lastPassTimeRef.current > effectivePassIntervalMs
       ) {
         lastPassTimeRef.current = now;
         const randomIdx = Math.floor(Math.random() * participants.length);
@@ -116,6 +148,8 @@ export function useFacilitationEngine(options: FacilitationEngineOptions) {
     kanpaiCount,
     participants,
     config,
+    lastYoiSpeakAt,
+    aiCooldownSec,
   ]);
 
   const triggerGoHomeRemind = useCallback((keyword: string) => {

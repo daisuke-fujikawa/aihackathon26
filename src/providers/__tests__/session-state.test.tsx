@@ -58,10 +58,13 @@ describe("SessionStateProvider", () => {
     it("ファシリテーション設定のデフォルト値が定義されている", () => {
       const { result } = renderHook(() => useSessionState(), { wrapper });
       const config = result.current.state.facilitationConfig;
-      expect(config.silenceThresholdSec).toBe(10);
-      expect(config.passIntervalSec).toBe(30);
+      expect(config.silenceThresholdSec).toBe(30);
+      expect(config.passIntervalSec).toBe(60);
       expect(config.breakIntervalMin).toBe(30);
       expect(config.kanpaiBreakThreshold).toBe(3);
+      expect(config.maxResponseChars).toBe(40);
+      expect(config.aiCooldownSec).toBe(15);
+      expect(config.transcriptDebounceMs).toBe(1500);
     });
   });
 
