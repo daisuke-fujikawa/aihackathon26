@@ -72,8 +72,8 @@ export interface SessionState {
 const SESSION_DURATION_MS = 2 * 60 * 60 * 1000; // 2時間
 
 const DEFAULT_FACILITATION_CONFIG: FacilitationConfig = {
-  silenceThresholdSec: 10,
-  passIntervalSec: 30,
+  silenceThresholdSec: 30,
+  passIntervalSec: 60,
   breakIntervalMin: 30,
   kanpaiBreakThreshold: 3,
 };
