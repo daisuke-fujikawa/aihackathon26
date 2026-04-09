@@ -139,7 +139,7 @@ export function BeerJugVisualizer({
     []
   );
 
-  // 空ジョッキ数を1秒ごとに更新
+  // 空ジョッキ数を1秒ごとに更新 + visibilitychange でスマホ復帰時も即反映
   useEffect(() => {
     if (sessionStartTime <= 0) return;
     const update = () => {
@@ -151,7 +151,20 @@ export function BeerJugVisualizer({
     };
     update();
     const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
+
+    // スマホではバックグラウンド時にsetIntervalがスロットリングされるため
+    // タブ復帰時に即座に再計算する
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        update();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [sessionStartTime]);
 
   // kanpaiCount変更時も即座に更新

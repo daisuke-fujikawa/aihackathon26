@@ -349,7 +349,7 @@ function YoiAppInner() {
       />
 
       {/* ヘッダー */}
-      <header className="flex flex-col gap-2 border-b border-zinc-800 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+      <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-zinc-800 bg-zinc-950 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
