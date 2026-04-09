@@ -79,7 +79,7 @@ const DEFAULT_FACILITATION_CONFIG: FacilitationConfig = {
   passIntervalSec: 60,
   breakIntervalMin: 30,
   kanpaiBreakThreshold: 3,
-  maxResponseChars: 40,
+  maxResponseChars: 80,
   aiCooldownSec: 15,
   transcriptDebounceMs: 1500,
 };

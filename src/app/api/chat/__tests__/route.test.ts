@@ -66,7 +66,7 @@ describe("POST /api/chat", () => {
     expect(callArgs.system).toContain("わし");
   });
 
-  it("max_tokensが80に制限される", async () => {
+  it("max_tokensが150に制限される", async () => {
     mockCreate.mockResolvedValue({
       content: [{ type: "text", text: "テスト" }],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,10 +81,10 @@ describe("POST /api/chat", () => {
     );
 
     const callArgs = mockCreate.mock.calls[0][0];
-    expect(callArgs.max_tokens).toBe(80);
+    expect(callArgs.max_tokens).toBe(150);
   });
 
-  it("システムプロンプトで40文字以内と前置き禁止を強調する", async () => {
+  it("システムプロンプトで80文字以内と前置き禁止を強調する", async () => {
     mockCreate.mockResolvedValue({
       content: [{ type: "text", text: "テスト" }],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,14 +99,14 @@ describe("POST /api/chat", () => {
     );
 
     const callArgs = mockCreate.mock.calls[0][0];
-    expect(callArgs.system).toContain("40文字");
-    expect(callArgs.system).toContain("1文");
+    expect(callArgs.system).toContain("80文字");
     expect(callArgs.system).toContain("前置き");
   });
 
-  it("長文応答は40文字以内に切り詰められて返される", async () => {
+  it("長文応答は80文字以内に切り詰められて返される", async () => {
     const longText =
-      "なるほどね〜そうなんだね〜それは大変だったね〜わしもそんなことあったよ〜ビール飲もうよ〜ひっく";
+      "なるほどね〜そうなんだね〜それは大変だったね〜わしもそんなことあったよ〜ビール飲もうよ〜ひっくあとはもう色々あるんだけどね〜それでね〜" +
+      "今日は本当に楽しい夜だね〜みんなで乾杯しよう〜";
     mockCreate.mockResolvedValue({
       content: [{ type: "text", text: longText }],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,7 +121,7 @@ describe("POST /api/chat", () => {
     );
     const data = await res.json();
 
-    expect(Array.from(data.text as string).length).toBeLessThanOrEqual(40);
+    expect(Array.from(data.text as string).length).toBeLessThanOrEqual(80);
     expect(data.truncated).toBe(true);
   });
 
