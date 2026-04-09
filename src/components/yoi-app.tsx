@@ -198,15 +198,29 @@ function YoiAppInner() {
     }
   }
 
-  // 最終transcriptの変化を監視してAI応答生成
+  // 最終transcriptの変化を監視してAI応答生成（1.5秒デバウンス）
   const prevTranscriptRef = useRef("");
+  const pendingTranscriptRef = useRef("");
+  const transcriptDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   if (transcript !== prevTranscriptRef.current && transcript) {
     const newText = transcript.slice(prevTranscriptRef.current.length);
     prevTranscriptRef.current = transcript;
     if (newText.trim()) {
       updateLastSpeechTime();
-      addMessage({ role: "user", content: newText.trim() });
-      generateAndSpeak(newText.trim());
+      pendingTranscriptRef.current += (pendingTranscriptRef.current ? " " : "") + newText.trim();
+
+      if (transcriptDebounceTimerRef.current) {
+        clearTimeout(transcriptDebounceTimerRef.current);
+      }
+      transcriptDebounceTimerRef.current = setTimeout(() => {
+        const fullText = pendingTranscriptRef.current.trim();
+        pendingTranscriptRef.current = "";
+        transcriptDebounceTimerRef.current = null;
+        if (fullText) {
+          addMessage({ role: "user", content: fullText });
+          generateAndSpeak(fullText);
+        }
+      }, 1500);
     }
   }
 
