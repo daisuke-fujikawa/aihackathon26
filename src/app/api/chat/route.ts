@@ -77,7 +77,7 @@ export async function POST(req: Request): Promise<Response> {
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 100,
+      max_tokens: 150,
       system: YOI_SYSTEM_PROMPT,
       messages,
     });
