@@ -66,7 +66,7 @@ describe("POST /api/chat", () => {
     expect(callArgs.system).toContain("わし");
   });
 
-  it("max_tokensが200に制限される", async () => {
+  it("max_tokensが80に制限される", async () => {
     mockCreate.mockResolvedValue({
       content: [{ type: "text", text: "テスト" }],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,7 +81,48 @@ describe("POST /api/chat", () => {
     );
 
     const callArgs = mockCreate.mock.calls[0][0];
-    expect(callArgs.max_tokens).toBe(200);
+    expect(callArgs.max_tokens).toBe(80);
+  });
+
+  it("システムプロンプトで40文字以内と前置き禁止を強調する", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text: "テスト" }],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    await POST(
+      makeRequest({
+        message: "テスト",
+        participants: [],
+        recentMessages: [],
+      })
+    );
+
+    const callArgs = mockCreate.mock.calls[0][0];
+    expect(callArgs.system).toContain("40文字");
+    expect(callArgs.system).toContain("1文");
+    expect(callArgs.system).toContain("前置き");
+  });
+
+  it("長文応答は40文字以内に切り詰められて返される", async () => {
+    const longText =
+      "なるほどね〜そうなんだね〜それは大変だったね〜わしもそんなことあったよ〜ビール飲もうよ〜ひっく";
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text: longText }],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const res = await POST(
+      makeRequest({
+        message: "悩みがあるんだ",
+        participants: [],
+        recentMessages: [],
+      })
+    );
+    const data = await res.json();
+
+    expect(Array.from(data.text as string).length).toBeLessThanOrEqual(40);
+    expect(data.truncated).toBe(true);
   });
 
   it("triggerTypeがSILENCE_KILLERの場合プロンプトに沈黙キラーの指示が含まれる", async () => {

@@ -24,6 +24,7 @@ import { MicStatusIndicator } from "./mic-status-indicator";
 import { ConfettiEffect } from "./confetti-effect";
 import { MobileReadinessBanner } from "./mobile-readiness-banner";
 import { fetchWithRetry } from "@/lib/retry";
+import { shouldSkipGenerate } from "@/lib/yoi-response";
 
 const TRIGGER_IMAGE_MAP: Partial<Record<FacilitationTriggerType, YoiImageKey>> =
   {
@@ -48,6 +49,7 @@ function YoiAppInner() {
 
   const isProcessingRef = useRef(false);
   const kanpaiTriggerRef = useRef(false);
+  const lastYoiSpeakAtRef = useRef(0);
 
   // 音声認識の開始/停止をrefで保持（宣言順序の問題を回避）
   const startListeningRef = useRef<() => void>(() => {});
@@ -60,6 +62,7 @@ function YoiAppInner() {
   // --- 音声再生フック ---
   const { isPlaying, playAudio, unlock, lastError, clearError } = useAudioPlayer({
     onComplete: () => {
+      lastYoiSpeakAtRef.current = Date.now();
       setPhase("LISTENING");
       resetYoiImage();
       // TTS再生完了後にマイク再開
@@ -74,7 +77,20 @@ function YoiAppInner() {
       triggerType?: FacilitationTriggerType,
       triggerContext?: string
     ) => {
-      if (isProcessingRef.current) return;
+      const skipReason = shouldSkipGenerate({
+        isProcessing: isProcessingRef.current,
+        isPlaying,
+        lastYoiSpeakAt: lastYoiSpeakAtRef.current,
+        now: Date.now(),
+        aiCooldownSec: state.facilitationConfig.aiCooldownSec,
+      });
+      if (skipReason) {
+        console.info("yoi.generateAndSpeak.skipped", {
+          reason: skipReason,
+          triggerType,
+        });
+        return;
+      }
       isProcessingRef.current = true;
       setPhase("PROCESSING");
 
@@ -126,12 +142,14 @@ function YoiAppInner() {
         } catch {
           // TTS失敗: テキストのみ表示でリカバリ
           console.warn("TTS failed, falling back to text-only");
+          lastYoiSpeakAtRef.current = Date.now();
           setPhase("LISTENING");
           resetYoiImage();
           startListeningRef.current();
         }
       } catch (error) {
         console.error("generateAndSpeak error:", error);
+        lastYoiSpeakAtRef.current = Date.now();
         setPhase("LISTENING");
         resetYoiImage();
         startListeningRef.current();
@@ -142,6 +160,8 @@ function YoiAppInner() {
     [
       state.participants,
       state.messages,
+      state.facilitationConfig.aiCooldownSec,
+      isPlaying,
       setPhase,
       addMessage,
       playAudio,
@@ -226,7 +246,7 @@ function YoiAppInner() {
           addMessage({ role: "user", content: fullText });
           generateAndSpeak(fullText);
         }
-      }, 1500);
+      }, state.facilitationConfig.transcriptDebounceMs);
     }
   }
 
@@ -261,6 +281,8 @@ function YoiAppInner() {
     sessionStartTime: state.sessionStartTime,
     kanpaiCount: state.kanpaiCount,
     onTrigger: onFacilitationTrigger,
+    lastYoiSpeakAt: lastYoiSpeakAtRef.current,
+    aiCooldownSec: state.facilitationConfig.aiCooldownSec,
   });
   facilitationRef.current = facilitation;
 
