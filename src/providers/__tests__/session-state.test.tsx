@@ -62,7 +62,7 @@ describe("SessionStateProvider", () => {
       expect(config.passIntervalSec).toBe(60);
       expect(config.breakIntervalMin).toBe(30);
       expect(config.kanpaiBreakThreshold).toBe(3);
-      expect(config.maxResponseChars).toBe(40);
+      expect(config.maxResponseChars).toBe(80);
       expect(config.aiCooldownSec).toBe(15);
       expect(config.transcriptDebounceMs).toBe(1500);
     });
