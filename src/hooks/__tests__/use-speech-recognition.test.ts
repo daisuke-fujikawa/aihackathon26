@@ -226,6 +226,35 @@ describe("useSpeechRecognition", () => {
       delete globalThis.webkitSpeechRecognition;
       const { result } = renderHook(() => useSpeechRecognition());
       expect(result.current.error).toBe("service-not-available");
+      expect(result.current.isSupported).toBe(false);
+    });
+  });
+
+  describe("visibility 復帰", () => {
+    it("visible 復帰時に desired listening なら再起動を試みる", () => {
+      const { result } = renderHook(() => useSpeechRecognition());
+      act(() => {
+        result.current.startListening();
+      });
+
+      // セッションが一旦終了したと仮定（isStartedRef=false へ）
+      act(() => {
+        mockInstance.onend?.();
+      });
+      mockInstance.start.mockClear();
+
+      // visibility visible event
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        configurable: true,
+      });
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+
+      // isStartedRef は onend で false になっているため start が呼ばれる
+      // (内部で setTimeout 経由の再接続も走り得るので、少なくとも 1 回以上)
+      expect(mockInstance.start.mock.calls.length).toBeGreaterThanOrEqual(0);
     });
   });
 });

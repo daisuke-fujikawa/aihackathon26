@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   SessionStateProvider,
   useSessionState,
@@ -16,11 +16,13 @@ import { useKeywordDetector } from "@/hooks/use-keyword-detector";
 import type { KeywordEvent } from "@/hooks/use-keyword-detector";
 import { useFacilitationEngine } from "@/hooks/use-facilitation-engine";
 import type { FacilitationTrigger } from "@/hooks/use-facilitation-engine";
+import { usePlatformCapabilities } from "@/hooks/use-platform-capabilities";
 import { SetupScreen } from "./setup-screen";
 import { ChatPanel } from "./chat-panel";
 import { BeerJugVisualizer } from "./beer-jug-visualizer";
 import { MicStatusIndicator } from "./mic-status-indicator";
 import { ConfettiEffect } from "./confetti-effect";
+import { MobileReadinessBanner } from "./mobile-readiness-banner";
 import { fetchWithRetry } from "@/lib/retry";
 
 const TRIGGER_IMAGE_MAP: Partial<Record<FacilitationTriggerType, YoiImageKey>> =
@@ -51,8 +53,12 @@ function YoiAppInner() {
   const startListeningRef = useRef<() => void>(() => {});
   const stopListeningRef = useRef<() => void>(() => {});
 
+  // --- プラットフォーム検知 ---
+  const { capabilities } = usePlatformCapabilities();
+  const [showMobileGuidance, setShowMobileGuidance] = useState(true);
+
   // --- 音声再生フック ---
-  const { isPlaying, playAudio } = useAudioPlayer({
+  const { isPlaying, playAudio, unlock, lastError, clearError } = useAudioPlayer({
     onComplete: () => {
       setPhase("LISTENING");
       resetYoiImage();
@@ -288,14 +294,40 @@ function YoiAppInner() {
 
   // --- SETUP画面 ---
   if (state.phase === "SETUP") {
-    return <SetupScreen onStart={handleStart} />;
+    return (
+      <SetupScreen
+        onStart={handleStart}
+        onUnlockAudio={unlock}
+        isMobile={capabilities.isMobile}
+      />
+    );
   }
 
   // --- メイン画面 ---
   return (
-    <div className="flex flex-1 flex-col h-screen">
+    <div
+      className="flex flex-1 flex-col h-dvh min-h-dvh"
+      style={{
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
+    >
+      {/* モバイル向けバナー */}
+      <MobileReadinessBanner
+        capabilities={capabilities}
+        playbackError={lastError}
+        speechError={speechError}
+        showGuidance={showMobileGuidance && !lastError && !speechError}
+        onRetryPlayback={() => {
+          clearError();
+        }}
+        onDismissGuidance={() => setShowMobileGuidance(false)}
+      />
+
       {/* ヘッダー */}
-      <header className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
+      <header className="flex flex-col gap-2 border-b border-zinc-800 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -321,18 +353,6 @@ function YoiAppInner() {
         currentYoiImage={state.currentYoiImage}
       />
 
-      {/* マイクエラー表示 */}
-      {speechError === "not-allowed" && (
-        <div className="bg-red-900/50 px-4 py-2 text-center text-sm text-red-200">
-          マイクの使用を許可してください
-        </div>
-      )}
-      {speechError === "service-not-available" && (
-        <div className="bg-red-900/50 px-4 py-2 text-center text-sm text-red-200">
-          Google Chromeで開いてください
-        </div>
-      )}
-
       {/* 中間認識テキスト表示 */}
       {interimTranscript && (
         <div className="border-t border-zinc-800 px-4 py-1 text-xs text-zinc-500">
@@ -341,9 +361,9 @@ function YoiAppInner() {
       )}
 
       {/* フッター */}
-      <footer className="flex items-center justify-center gap-4 border-t border-zinc-800 px-4 py-3">
+      <footer className="flex flex-col items-center justify-center gap-2 border-t border-zinc-800 px-4 py-3 sm:flex-row sm:gap-4">
         <MicStatusIndicator phase={state.phase} onToggle={handleMicToggle} />
-        <div className="text-xs text-zinc-600">
+        <div className="text-xs text-zinc-600 truncate max-w-full">
           参加者: {state.participants.join(", ")}
         </div>
       </footer>

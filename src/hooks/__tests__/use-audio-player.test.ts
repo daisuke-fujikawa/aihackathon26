@@ -46,7 +46,9 @@ const mockAudioContext = {
   createBufferSource: vi.fn(() => ({ ...mockSourceNode })),
   createBiquadFilter: vi.fn(() => ({ ...mockBiquadFilter })),
   createGain: vi.fn(() => ({ ...mockGainNode })),
+  createBuffer: vi.fn(() => mockAudioBuffer),
   decodeAudioData: vi.fn(() => Promise.resolve(mockAudioBuffer)),
+  resume: vi.fn(() => Promise.resolve()),
   destination: {},
   close: vi.fn(),
   state: "running",
@@ -184,6 +186,109 @@ describe("useAudioPlayer", () => {
       });
 
       expect(result.current.isPlaying).toBe(false);
+    });
+  });
+
+  describe("unlock", () => {
+    it("unlock成功時にisUnlockedがtrueになる", async () => {
+      const { result } = renderHook(() => useAudioPlayer());
+
+      await act(async () => {
+        const r = await result.current.unlock();
+        expect(r.status).toBe("unlocked");
+      });
+
+      expect(result.current.isUnlocked).toBe(true);
+    });
+
+    it("AudioContext非対応時はfailedを返す", async () => {
+      // @ts-expect-error simulate unsupported
+      delete globalThis.AudioContext;
+      const { result } = renderHook(() => useAudioPlayer());
+
+      await act(async () => {
+        const r = await result.current.unlock();
+        expect(r.status).toBe("failed");
+        if (r.status === "failed") {
+          expect(r.reason).toBe("not-supported");
+        }
+      });
+
+      // restore for other tests
+      // @ts-expect-error restore
+      globalThis.AudioContext = function () {
+        return mockAudioContext;
+      };
+    });
+
+    it("unlock後のplayAudioで同じcontextを再利用する", async () => {
+      const { result } = renderHook(() => useAudioPlayer());
+
+      await act(async () => {
+        await result.current.unlock();
+      });
+
+      const bufferCallsBefore =
+        mockAudioContext.createBufferSource.mock.calls.length;
+
+      await act(async () => {
+        await result.current.playAudio(new ArrayBuffer(100));
+      });
+
+      expect(
+        mockAudioContext.createBufferSource.mock.calls.length
+      ).toBeGreaterThan(bufferCallsBefore);
+    });
+  });
+
+  describe("エラー状態", () => {
+    it("decodeAudioData失敗時にlastErrorがdecode-failedになる", async () => {
+      mockAudioContext.decodeAudioData.mockRejectedValueOnce(
+        new Error("decode error")
+      );
+      // avoid recovery path from kicking in by making 2nd call also fail
+      mockAudioContext.decodeAudioData.mockRejectedValueOnce(
+        new Error("decode error retry")
+      );
+
+      const { result } = renderHook(() => useAudioPlayer());
+
+      await act(async () => {
+        try {
+          await result.current.playAudio(new ArrayBuffer(100));
+        } catch {
+          // expected
+        }
+      });
+
+      expect(result.current.lastError?.type).toBe("decode-failed");
+    });
+
+    it("clearErrorでlastErrorがnullに戻る", async () => {
+      mockAudioContext.decodeAudioData.mockRejectedValueOnce(
+        new Error("decode error")
+      );
+      mockAudioContext.decodeAudioData.mockRejectedValueOnce(
+        new Error("decode error retry")
+      );
+
+      const { result } = renderHook(() => useAudioPlayer());
+
+      await act(async () => {
+        try {
+          await result.current.playAudio(new ArrayBuffer(100));
+        } catch {
+          // expected
+        }
+      });
+
+      expect(result.current.lastError).not.toBeNull();
+
+      act(() => {
+        result.current.clearError();
+      });
+
+      expect(result.current.lastError).toBeNull();
     });
   });
 });

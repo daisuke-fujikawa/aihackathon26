@@ -7,7 +7,8 @@ export type SpeechRecognitionErrorType =
   | "no-speech"
   | "audio-capture"
   | "network"
-  | "service-not-available";
+  | "service-not-available"
+  | "mobile-recovery-failed";
 
 interface SpeechRecognitionState {
   isListening: boolean;
@@ -17,12 +18,14 @@ interface SpeechRecognitionState {
 }
 
 interface UseSpeechRecognitionReturn extends SpeechRecognitionState {
+  isSupported: boolean;
   startListening: () => void;
   stopListening: () => void;
   resetTranscript: () => void;
 }
 
 const RECONNECT_DELAY_MS = 200;
+const MOBILE_RECOVERY_MAX_ATTEMPTS = 3;
 
 // Chrome の webkitSpeechRecognition を取得
 function getSpeechRecognitionCtor(): (new () => {
@@ -56,6 +59,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const recognitionRef = useRef<any>(null);
   const desiredListeningRef = useRef(false);
   const isStartedRef = useRef(false);
+  const recoveryAttemptsRef = useRef(0);
 
   const SpeechRecognitionCtor = getSpeechRecognitionCtor();
   const isSupported = SpeechRecognitionCtor !== null;
@@ -131,8 +135,42 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
 
     recognitionRef.current = recognition;
 
+    // visibilitychange 復帰時にマイクを再起動
+    const handleVisibilityChange = () => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState !== "visible") return;
+      if (!desiredListeningRef.current) return;
+      if (isStartedRef.current) return;
+
+      const attemptRestart = (attempt: number): void => {
+        if (attempt > MOBILE_RECOVERY_MAX_ATTEMPTS) {
+          setState((prev) => ({
+            ...prev,
+            error: "mobile-recovery-failed",
+            isListening: false,
+          }));
+          desiredListeningRef.current = false;
+          return;
+        }
+        try {
+          recognition.start();
+          recoveryAttemptsRef.current = 0;
+        } catch {
+          setTimeout(() => attemptRestart(attempt + 1), RECONNECT_DELAY_MS);
+        }
+      };
+      attemptRestart(1);
+    };
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
+
     return () => {
       desiredListeningRef.current = false;
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
       try {
         recognition.abort();
       } catch {
@@ -172,6 +210,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
 
   return {
     ...state,
+    isSupported,
     startListening,
     stopListening,
     resetTranscript,
