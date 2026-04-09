@@ -166,7 +166,7 @@ function YoiAppInner() {
   stopListeningRef.current = stopListening;
 
   // --- 音量計測 ---
-  const { volumeLevel, totalSpeechTime } = useAudioAnalyser();
+  const { volumeLevel } = useAudioAnalyser();
 
   // --- キーワード検出 ---
   const onKeyword = useCallback(
@@ -343,7 +343,8 @@ function YoiAppInner() {
         </div>
         <BeerJugVisualizer
           volumeLevel={volumeLevel}
-          totalSpeechTime={totalSpeechTime}
+          kanpaiCount={state.kanpaiCount}
+          sessionStartTime={state.sessionStartTime}
         />
       </header>
 

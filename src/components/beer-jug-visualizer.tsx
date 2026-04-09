@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 
 interface BeerJugVisualizerProps {
   volumeLevel: number; // 0.0-1.0
-  totalSpeechTime: number; // 秒
+  kanpaiCount: number; // 乾杯回数
+  sessionStartTime: number; // セッション開始時刻 (Date.now())
 }
 
 // 泡粒の型
@@ -18,19 +19,101 @@ interface Bubble {
   opacity: number;
 }
 
+export const MAX_DURATION = 300; // 5分で1杯空になる
+export const KANPAI_DRAIN = 0.3; // 乾杯1回で3/10減る
+
+export function computeDrain(sessionStartTime: number, kanpaiCount: number): number {
+  if (sessionStartTime <= 0) return 0;
+  const elapsed = (Date.now() - sessionStartTime) / 1000;
+  return elapsed / MAX_DURATION + kanpaiCount * KANPAI_DRAIN;
+}
+
+// --- 空ジョッキコンポーネント ---
+function EmptyBeerMug() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const W = 38;
+  const H = 52;
+  const JUG_W = 30;
+  const JUG_H = 44;
+  const HANDLE_W = 6;
+  const BORDER_R = 3;
+
+  const dpr = useMemo(
+    () => (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1),
+    []
+  );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+
+    // ジョッキ背景
+    ctx.beginPath();
+    roundedRect(ctx, 1, 2, JUG_W, JUG_H, BORDER_R);
+    ctx.fillStyle = "rgba(30, 25, 15, 0.4)";
+    ctx.fill();
+
+    // 枠線
+    ctx.beginPath();
+    roundedRect(ctx, 1, 2, JUG_W, JUG_H, BORDER_R);
+    ctx.strokeStyle = "rgba(212, 135, 14, 0.5)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 取っ手
+    ctx.beginPath();
+    ctx.moveTo(JUG_W + 1, 8);
+    ctx.quadraticCurveTo(
+      JUG_W + HANDLE_W + 1,
+      8,
+      JUG_W + HANDLE_W + 1,
+      16
+    );
+    ctx.lineTo(JUG_W + HANDLE_W + 1, JUG_H - 8);
+    ctx.quadraticCurveTo(
+      JUG_W + HANDLE_W + 1,
+      JUG_H - 2,
+      JUG_W + 1,
+      JUG_H - 2
+    );
+    ctx.strokeStyle = "rgba(212, 135, 14, 0.5)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }, [dpr]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ width: W, height: H }}
+      className="flex-shrink-0 opacity-60"
+    />
+  );
+}
+
+// --- アクティブジョッキ (アニメーション付き) ---
 export function BeerJugVisualizer({
   volumeLevel,
-  totalSpeechTime,
+  kanpaiCount,
+  sessionStartTime,
 }: BeerJugVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bubblesRef = useRef<Bubble[]>([]);
   const rafRef = useRef<number>(0);
   const volumeRef = useRef(volumeLevel);
-  const speechTimeRef = useRef(totalSpeechTime);
+  const kanpaiCountRef = useRef(kanpaiCount);
+  const sessionStartTimeRef = useRef(sessionStartTime);
+  const [emptyMugCount, setEmptyMugCount] = useState(0);
 
   // refs を最新値で更新
   volumeRef.current = volumeLevel;
-  speechTimeRef.current = totalSpeechTime;
+  kanpaiCountRef.current = kanpaiCount;
+  sessionStartTimeRef.current = sessionStartTime;
 
   // 泡粒の初期生成
   const MAX_BUBBLES = 30;
@@ -38,7 +121,7 @@ export function BeerJugVisualizer({
   // 波形オフセット用
   const waveOffsetRef = useRef(0);
 
-  // 揺れの強さ（音量の変化速度に応じる）
+  // 揺れの強さ
   const prevVolumeRef = useRef(0);
   const shakeRef = useRef(0);
 
@@ -49,13 +132,36 @@ export function BeerJugVisualizer({
   const CANVAS_W = JUG_W + HANDLE_W + 4;
   const CANVAS_H = JUG_H + 8;
   const BORDER_R = 8;
-  const MAX_DURATION = 180; // 3分で空に
 
   // DPR対応
   const dpr = useMemo(
     () => (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1),
     []
   );
+
+  // 空ジョッキ数を1秒ごとに更新
+  useEffect(() => {
+    if (sessionStartTime <= 0) return;
+    const update = () => {
+      const totalDrain = computeDrain(
+        sessionStartTimeRef.current,
+        kanpaiCountRef.current
+      );
+      setEmptyMugCount(Math.floor(totalDrain));
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [sessionStartTime]);
+
+  // kanpaiCount変更時も即座に更新
+  useEffect(() => {
+    const totalDrain = computeDrain(
+      sessionStartTimeRef.current,
+      kanpaiCountRef.current
+    );
+    setEmptyMugCount(Math.floor(totalDrain));
+  }, [kanpaiCount]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -71,7 +177,13 @@ export function BeerJugVisualizer({
 
     const draw = () => {
       const vol = volumeRef.current;
-      const speechTime = speechTimeRef.current;
+
+      // ドレイン計算 (時間経過 + 乾杯)
+      const totalDrain = computeDrain(
+        sessionStartTimeRef.current,
+        kanpaiCountRef.current
+      );
+      const liquidPct = Math.max(0, 1 - (totalDrain - Math.floor(totalDrain)));
 
       // 揺れ計算
       const volDelta = Math.abs(vol - prevVolumeRef.current);
@@ -81,8 +193,7 @@ export function BeerJugVisualizer({
       // 波オフセット更新
       waveOffsetRef.current += 0.04 + vol * 0.08;
 
-      // 液面パーセント (3分で空)
-      const liquidPct = Math.max(0, 1 - speechTime / MAX_DURATION);
+      // 液面パーセント
       const liquidH = liquidPct * (JUG_H - 8);
       const liquidTop = JUG_H - 4 - liquidH;
 
@@ -299,12 +410,17 @@ export function BeerJugVisualizer({
   }, [dpr]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      data-testid="beer-jug"
-      style={{ width: CANVAS_W, height: CANVAS_H }}
-      className="mx-auto"
-    />
+    <div className="flex items-end gap-1 overflow-x-auto" data-testid="beer-jug-container">
+      {Array.from({ length: emptyMugCount }).map((_, i) => (
+        <EmptyBeerMug key={i} />
+      ))}
+      <canvas
+        ref={canvasRef}
+        data-testid="beer-jug"
+        style={{ width: CANVAS_W, height: CANVAS_H }}
+        className="flex-shrink-0"
+      />
+    </div>
   );
 }
 
