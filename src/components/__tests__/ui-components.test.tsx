@@ -88,23 +88,18 @@ describe("ChatPanel", () => {
 describe("BeerJugVisualizer", () => {
   it("ビールジョッキが表示される", () => {
     render(
-      <BeerJugVisualizer volumeLevel={0.5} totalSpeechTime={30} />
+      <BeerJugVisualizer volumeLevel={0.5} kanpaiCount={0} sessionStartTime={Date.now()} />
     );
     expect(screen.getByTestId("beer-jug")).toBeDefined();
   });
 
-  it("音量レベルに応じて泡のスタイルが変化する", () => {
-    const { rerender } = render(
-      <BeerJugVisualizer volumeLevel={0} totalSpeechTime={0} />
+  it("乾杯で空ジョッキが増える", () => {
+    // kanpaiCount=4 → totalDrain=1.2 → 空ジョッキ1個
+    const { container } = render(
+      <BeerJugVisualizer volumeLevel={0} kanpaiCount={4} sessionStartTime={Date.now()} />
     );
-    const foam = screen.getByTestId("beer-foam");
-    const initialHeight = foam.style.height;
-
-    rerender(
-      <BeerJugVisualizer volumeLevel={0.8} totalSpeechTime={10} />
-    );
-    // 音量が高いと泡の高さが変わる
-    expect(foam.style.height).not.toBe(initialHeight);
+    const emptyMugs = container.querySelectorAll("canvas:not([data-testid='beer-jug'])");
+    expect(emptyMugs.length).toBe(1);
   });
 });
 
